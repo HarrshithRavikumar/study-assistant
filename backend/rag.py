@@ -1,15 +1,15 @@
 import numpy as np
-import anthropic
+import voyageai
 
-_client: anthropic.Anthropic | None = None
+_client: voyageai.Client | None = None
 embeddings_store: list[np.ndarray] = []
 chunks: list[str] = []
 
 
-def _get_client() -> anthropic.Anthropic:
+def _get_client() -> voyageai.Client:
     global _client
     if _client is None:
-        _client = anthropic.Anthropic()
+        _client = voyageai.Client()
     return _client
 
 
@@ -27,21 +27,15 @@ def chunk_text(text: str, chunk_size: int = 300, overlap: int = 50) -> list[str]
 
 
 def embed_documents(texts: list[str]) -> list[np.ndarray]:
-    response = _get_client().embeddings.create(
-        model="voyage-3-lite",
-        input=texts,
-    )
-    return [np.array(item.embedding) for item in response.data]
+    response = _get_client().embed(texts, model="voyage-3-lite", input_type="document")
+    return [np.array(embedding) for embedding in response.embeddings]
 
 
 def search_index(query: str, top_k: int = 5) -> list[str]:
     if not embeddings_store or not chunks:
         return []
-    query_response = _get_client().embeddings.create(
-        model="voyage-3-lite",
-        input=[query],
-    )
-    query_vec = np.array(query_response.data[0].embedding)
+    response = _get_client().embed([query], model="voyage-3-lite", input_type="query")
+    query_vec = np.array(response.embeddings[0])
     similarities = [
         np.dot(query_vec, emb) / (np.linalg.norm(query_vec) * np.linalg.norm(emb))
         for emb in embeddings_store
