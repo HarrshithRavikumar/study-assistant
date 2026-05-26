@@ -17,7 +17,7 @@ app.add_middleware(
 
 
 class UploadRequest(BaseModel):
-    notes: str
+    text: str
 
 
 class AskRequest(BaseModel):
@@ -31,7 +31,7 @@ async def health_check():
 
 @app.post("/upload")
 async def upload(body: UploadRequest):
-    load_notes(body.notes)
+    load_notes(body.text)
     return {"message": "Notes loaded", "chunks": len(rag.chunks)}
 
 
