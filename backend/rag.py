@@ -1,16 +1,37 @@
+import re
+import math
 import numpy as np
-import voyageai
 
-_client: voyageai.Client | None = None
-embeddings_store: list[np.ndarray] = []
 chunks: list[str] = []
+_term_index: dict[str, int] = {}
+_idf: np.ndarray = np.array([])
+_embeddings: list[np.ndarray] = []
 
 
-def _get_client() -> voyageai.Client:
-    global _client
-    if _client is None:
-        _client = voyageai.Client()
-    return _client
+def _tokenize(text: str) -> list[str]:
+    return re.findall(r'[a-z]+', text.lower())
+
+
+def _build_idf(corpus: list[list[str]]) -> tuple[dict[str, int], np.ndarray]:
+    all_terms = sorted({term for doc in corpus for term in doc})
+    term_index = {term: i for i, term in enumerate(all_terms)}
+    df = np.zeros(len(all_terms))
+    for doc in corpus:
+        for term in set(doc):
+            if term in term_index:
+                df[term_index[term]] += 1
+    idf = np.log((len(corpus) + 1) / (df + 1)) + 1
+    return term_index, idf
+
+
+def _vectorize(tokens: list[str], term_index: dict[str, int], idf: np.ndarray) -> np.ndarray:
+    vec = np.zeros(len(term_index))
+    for token in tokens:
+        if token in term_index:
+            vec[term_index[token]] += 1
+    vec *= idf
+    norm = np.linalg.norm(vec)
+    return vec / norm if norm > 0 else vec
 
 
 def chunk_text(text: str, chunk_size: int = 300, overlap: int = 50) -> list[str]:
@@ -26,25 +47,18 @@ def chunk_text(text: str, chunk_size: int = 300, overlap: int = 50) -> list[str]
     return result
 
 
-def embed_documents(texts: list[str]) -> list[np.ndarray]:
-    response = _get_client().embed(texts, model="voyage-3-lite", input_type="document")
-    return [np.array(embedding) for embedding in response.embeddings]
-
-
 def search_index(query: str, top_k: int = 5) -> list[str]:
-    if not embeddings_store or not chunks:
+    if not _embeddings or not chunks:
         return []
-    response = _get_client().embed([query], model="voyage-3-lite", input_type="query")
-    query_vec = np.array(response.embeddings[0])
-    similarities = [
-        np.dot(query_vec, emb) / (np.linalg.norm(query_vec) * np.linalg.norm(emb))
-        for emb in embeddings_store
-    ]
+    query_vec = _vectorize(_tokenize(query), _term_index, _idf)
+    similarities = [np.dot(query_vec, emb) for emb in _embeddings]
     top_indices = np.argsort(similarities)[::-1][: min(top_k, len(chunks))]
     return [chunks[i] for i in top_indices]
 
 
 def load_notes(text: str) -> None:
-    global chunks, embeddings_store
+    global chunks, _term_index, _idf, _embeddings
     chunks = chunk_text(text)
-    embeddings_store = embed_documents(chunks)
+    tokenized = [_tokenize(chunk) for chunk in chunks]
+    _term_index, _idf = _build_idf(tokenized)
+    _embeddings = [_vectorize(tokens, _term_index, _idf) for tokens in tokenized]

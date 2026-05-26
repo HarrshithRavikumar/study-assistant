@@ -1,7 +1,6 @@
 fastapi
 uvicorn[standard]
 anthropic
-voyageai
 python-multipart
 python-dotenv
 numpy
