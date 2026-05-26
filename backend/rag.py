@@ -1,17 +1,16 @@
 import numpy as np
-import faiss
-from sentence_transformers import SentenceTransformer
+import anthropic
 
-model: SentenceTransformer | None = None
-index: faiss.Index | None = None
+_client: anthropic.Anthropic | None = None
+embeddings_store: list[np.ndarray] = []
 chunks: list[str] = []
 
 
-def _get_model() -> SentenceTransformer:
-    global model
-    if model is None:
-        model = SentenceTransformer("all-MiniLM-L6-v2")
-    return model
+def _get_client() -> anthropic.Anthropic:
+    global _client
+    if _client is None:
+        _client = anthropic.Anthropic()
+    return _client
 
 
 def chunk_text(text: str, chunk_size: int = 300, overlap: int = 50) -> list[str]:
@@ -27,28 +26,31 @@ def chunk_text(text: str, chunk_size: int = 300, overlap: int = 50) -> list[str]
     return result
 
 
-def embed_documents(texts: list[str]) -> np.ndarray:
-    return _get_model().encode(texts, convert_to_numpy=True, show_progress_bar=False)
-
-
-def build_index(embeddings: np.ndarray) -> None:
-    global index
-    dim = embeddings.shape[1]
-    index = faiss.IndexFlatL2(dim)
-    index.add(embeddings.astype(np.float32))
+def embed_documents(texts: list[str]) -> list[np.ndarray]:
+    response = _get_client().embeddings.create(
+        model="voyage-3-lite",
+        input=texts,
+    )
+    return [np.array(item.embedding) for item in response.data]
 
 
 def search_index(query: str, top_k: int = 5) -> list[str]:
-    if index is None or not chunks:
+    if not embeddings_store or not chunks:
         return []
-    query_vec = _get_model().encode([query], convert_to_numpy=True).astype(np.float32)
-    k = min(top_k, index.ntotal)
-    _, indices = index.search(query_vec, k)
-    return [chunks[i] for i in indices[0] if 0 <= i < len(chunks)]
+    query_response = _get_client().embeddings.create(
+        model="voyage-3-lite",
+        input=[query],
+    )
+    query_vec = np.array(query_response.data[0].embedding)
+    similarities = [
+        np.dot(query_vec, emb) / (np.linalg.norm(query_vec) * np.linalg.norm(emb))
+        for emb in embeddings_store
+    ]
+    top_indices = np.argsort(similarities)[::-1][: min(top_k, len(chunks))]
+    return [chunks[i] for i in top_indices]
 
 
 def load_notes(text: str) -> None:
-    global chunks
+    global chunks, embeddings_store
     chunks = chunk_text(text)
-    embeddings = embed_documents(chunks)
-    build_index(embeddings)
+    embeddings_store = embed_documents(chunks)
