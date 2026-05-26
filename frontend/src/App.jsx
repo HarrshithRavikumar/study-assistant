@@ -230,7 +230,7 @@ export default function App() {
       const res = await fetch('https://study-assistant-k5qb.onrender.com/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes }),
+        body: JSON.stringify({ text: notes }),
       })
       if (!res.ok) throw new Error(`Server responded with ${res.status}`)
       setUploadSuccess('Notes uploaded successfully.')
