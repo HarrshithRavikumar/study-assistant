@@ -46,7 +46,7 @@ The frontend dev server runs on http://localhost:5173 and the backend on http://
 - **Context-grounded answers** — Claude answers using only your notes, not general knowledge
 - **Source highlighting** — every answer shows the exact chunks it was drawn from
 
-## Links
+## Links:
 
 - GitHub: https://github.com/HarrshithRavikumar/study-assistant
 - Live: https://study-assistant-zeta.vercel.app
