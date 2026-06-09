@@ -39,7 +39,7 @@ npm run dev
 
 The frontend dev server runs on http://localhost:5173 and the backend on http://localhost:8000.
 
-## Features
+## Features:
 
 - **Note upload** — paste any plain-text notes and index them instantly
 - **Semantic search** — TF-IDF retrieval finds the most relevant passages for your question
