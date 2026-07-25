@@ -1,4 +1,4 @@
-# AI Study Assistant
+# AI Study Assistant 
 
 Upload your notes and ask questions — get answers grounded in what you actually studied.
 
