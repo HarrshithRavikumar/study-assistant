@@ -1,5 +1,5 @@
 # AI Study Assistant 
- 
+  
 Upload your notes and ask questions — get answers grounded in what you actually studied.
 
 **Live demo:** https://study-assistant-zeta.vercel.app
